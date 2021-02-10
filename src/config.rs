@@ -50,4 +50,5 @@ pub struct Hook {
 #[derive(Debug, Deserialize)]
 pub struct PostgresConf {
     pub connection: String,
+    pub ssl_tls_cert_path: String,
 }

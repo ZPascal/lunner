@@ -4,6 +4,7 @@ use config::*;
 use std::{
     sync::Arc,
     time::{Duration, SystemTime},
+    fs,
 };
 use tokio::{process::Command, sync::RwLock};
 use tokio_postgres::{Client, IsolationLevel, NoTls, Statement};
@@ -66,8 +67,21 @@ async fn run_pg_loop(state: State) -> Result<(), anyhow::Error> {
     let conf = Config::load()?;
     let leader_timeout = Duration::new(conf.leader_timeout_seconds, 0);
 
-    let (mut client, connection) =
-        tokio_postgres::connect(&conf.postgres.connection, NoTls).await?;
+    if !&conf.postgres.ssl_tls_cert_path.trim().is_empty(){
+        let cert = fs::read(&conf.postgres.ssl_tls_cert_path.trim()).unwrap();
+        let cert = Certificate::from_pem(&cert).unwrap();
+        let connector = TlsConnector::builder()
+            .add_root_certificate(cert)
+            .build()
+            .unwrap();
+        let connector = MakeTlsConnector::new(connector);
+
+        let (mut client, connection) =
+            tokio_postgres::connect(&conf.postgres.connection, connector).await?;
+    } else {
+        let (mut client, connection) =
+            tokio_postgres::connect(&conf.postgres.connection, NoTls).await?;
+    }
 
     tokio::spawn(async move {
         if let Err(e) = connection.await {
@@ -113,6 +127,7 @@ async fn run_pg_loop(state: State) -> Result<(), anyhow::Error> {
     });
     Ok(())
 }
+// Maybe there's option to change '&mut Client' definition to a Client
 async fn pg_inner_loop(
     client: &mut Client,
     id: &String,

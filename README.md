@@ -11,6 +11,7 @@ id: lunner                   ## Identity for this process (must be unique for ea
 leader_timeout_seconds: 30   ## How long until standby processes consider the leader process unresponsive
 postgres:                        
   connection: postgres://postgres:postgres@127.0.0.1:5432/postgres    ## pg connection url
+  ssl_tls_cert_path: /<absolute path of the tls>/cert.pem             ## absolute tls cert path (if the parameter is set, tls support is automatically activated)
 hooks:
   become_leader:                                                      ## Hook that will be executed when a process becomes the leader
     cmd: "bin/leader_process"
