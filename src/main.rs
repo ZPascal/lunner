@@ -4,10 +4,20 @@ use config::*;
 use std::{
     sync::Arc,
     time::{Duration, SystemTime},
-    fs,
 };
-use tokio::{process::Command, sync::RwLock};
-use tokio_postgres::{Client, IsolationLevel, NoTls, Statement};
+
+use deadpool_postgres::{
+    Config as PoolConfig,
+    Pool,
+};
+
+use rustls::ClientConfig;
+use tokio::process::Command;
+use tokio_postgres::{NoTls, Client, Statement, IsolationLevel};
+use tokio_postgres_rustls::MakeRustlsConnect;
+use std::fs::File;
+use std::io::BufReader;
+use tokio::sync::RwLock;
 
 const CREATE_TABLE: &'static str =
     "CREATE TABLE IF NOT EXISTS lunner ( leader VARCHAR, since TIMESTAMP );";
@@ -67,21 +77,25 @@ async fn run_pg_loop(state: State) -> Result<(), anyhow::Error> {
     let conf = Config::load()?;
     let leader_timeout = Duration::new(conf.leader_timeout_seconds, 0);
 
-    if !&conf.postgres.ssl_tls_cert_path.trim().is_empty(){
-        let cert = fs::read(&conf.postgres.ssl_tls_cert_path.trim()).unwrap();
-        let cert = Certificate::from_pem(&cert).unwrap();
-        let connector = TlsConnector::builder()
-            .add_root_certificate(cert)
-            .build()
-            .unwrap();
-        let connector = MakeTlsConnector::new(connector);
+    let mut pg: PoolConfig;
 
-        let (mut client, connection) =
-            tokio_postgres::connect(&conf.postgres.connection, connector).await?;
+    let pool: Pool = if let Some(ca_cert) = conf.postgres.ssl_tls_cert_path {
+        let mut tls_config = ClientConfig::new();
+        let cert_file = File::open(&ca_cert)?;
+        let mut buf = BufReader::new(cert_file);
+        tls_config.root_store.add_pem_file(&mut buf).map_err(|_| {
+            anyhow::anyhow!("failed to read database root certificate: {}", ca_cert)
+        })?;
+
+        let tls = MakeRustlsConnect::new(tls_config);
+        pg.create_pool(tls)?
     } else {
-        let (mut client, connection) =
-            tokio_postgres::connect(&conf.postgres.connection, NoTls).await?;
-    }
+        pg.create_pool(NoTls)?
+    };
+
+    let client = pool.get().await?;
+    let connection = pool.get().sl
+
 
     tokio::spawn(async move {
         if let Err(e) = connection.await {
