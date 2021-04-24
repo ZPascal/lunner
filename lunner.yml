@@ -1,0 +1,17 @@
+id: lunner
+leader_timeout_seconds: 30
+postgres:
+  host: 127.0.0.1
+  port: 6432
+  dbname: postgres
+  user: postgres
+  password: postgres
+  ssl_tls_cert_path: ./docker/files/cert/ca.crt
+hooks:
+  become_leader:
+    cmd: "bin/leader_process"
+    args: []
+  become_standby:
+    cmd: "echo"
+    args:
+      - "hook standby"

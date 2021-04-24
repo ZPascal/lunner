@@ -8,7 +8,6 @@ use std::{
 
 use deadpool_postgres::{
     Config as PoolConfig,
-    Pool,
 };
 
 use rustls::ClientConfig;
@@ -77,14 +76,20 @@ async fn run_pg_loop(state: State) -> Result<(), anyhow::Error> {
     let conf = Config::load()?;
     let leader_timeout = Duration::new(conf.leader_timeout_seconds, 0);
 
-    let mut pg: PoolConfig;
+    let mut pg: PoolConfig = Default::default();
 
-    let pool: Pool = if let Some(ca_cert) = conf.postgres.ssl_tls_cert_path {
+    pg.host = Option::from(conf.postgres.host.clone());
+    pg.port = Option::from(conf.postgres.port.clone());
+    pg.dbname = Option::from(conf.postgres.dbname.clone());
+    pg.user = Option::from(conf.postgres.user.clone());
+    pg.password = Option::from(conf.postgres.password.clone());
+
+     let pool = if let Some(ca_cert) = Option::from(&conf.postgres.ssl_tls_cert_path) {
         let mut tls_config = ClientConfig::new();
         let cert_file = File::open(&ca_cert)?;
         let mut buf = BufReader::new(cert_file);
         tls_config.root_store.add_pem_file(&mut buf).map_err(|_| {
-            anyhow::anyhow!("failed to read database root certificate: {}", ca_cert)
+            anyhow::anyhow!("failed to read database ca certificate: {}", ca_cert)
         })?;
 
         let tls = MakeRustlsConnect::new(tls_config);
@@ -93,13 +98,14 @@ async fn run_pg_loop(state: State) -> Result<(), anyhow::Error> {
         pg.create_pool(NoTls)?
     };
 
-    let client = pool.get().await?;
-    let connection = pool.get().sl
 
+    let mut client = pool.get().await?;
 
+    //TODO Update to get the corresponding errors
+    let error = pool.get().await.is_err();
     tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("[lunner] connection error: {}", e);
+        if error == true {
+            eprintln!("[lunner] connection error");
         }
     });
 

@@ -3,7 +3,7 @@ services:
   postgres:
     image: postgres:11
     ports:
-      - "5432:5432"
+      - "6432:5432"
     command: postgres
     volumes:
       - "./files/cert/server.crt:/tmp/server.crt"
