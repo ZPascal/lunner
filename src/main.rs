@@ -84,7 +84,7 @@ async fn run_pg_loop(state: State) -> Result<(), anyhow::Error> {
     pg.user = Option::from(conf.postgres.user.clone());
     pg.password = Option::from(conf.postgres.password.clone());
 
-     let pool = if let Some(ca_cert) = Option::from(&conf.postgres.ssl_tls_cert_path) {
+     let pool = if let Some(ca_cert) = &conf.postgres.ssl_tls_cert_path {
         let mut tls_config = ClientConfig::new();
         let cert_file = File::open(&ca_cert)?;
         let mut buf = BufReader::new(cert_file);

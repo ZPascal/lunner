@@ -54,5 +54,5 @@ pub struct PostgresConf {
     pub dbname: String,
     pub user: String,
     pub password: String,
-    pub ssl_tls_cert_path: String,
+    pub ssl_tls_cert_path: Option<String>,
 }
